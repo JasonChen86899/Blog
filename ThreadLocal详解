@@ -1,0 +1,41 @@
+/**
+    * Sets the current thread's copy of this thread-local variable
+    * to the specified value.  Most subclasses will have no need to
+    * override this method, relying solely on the {@link #initialValue}
+    * method to set the values of thread-locals.
+    *
+    * @param value the value to be stored in the current thread's copy of
+    *        this thread-local.
+    */
+   public void set(T value) {
+       Thread t = Thread.currentThread();
+       ThreadLocalMap map = getMap(t);
+       if (map != null)
+           map.set(this, value);
+       else
+           createMap(t, value);
+   }
+   /**
+       * Returns the value in the current thread's copy of this
+       * thread-local variable.  If the variable has no value for the
+       * current thread, it is first initialized to the value returned
+       * by an invocation of the {@link #initialValue} method.
+       *
+       * @return the current thread's value of this thread-local
+       */
+      public T get() {
+          Thread t = Thread.currentThread();
+          ThreadLocalMap map = getMap(t);
+          if (map != null) {
+              ThreadLocalMap.Entry e = map.getEntry(this);
+              if (e != null) {
+                  @SuppressWarnings("unchecked")
+                  T result = (T)e.value;
+                  return result;
+              }
+          }
+          return setInitialValue();
+      }
+线程隔离的秘密，就在于ThreadLocalMap这个类。ThreadLocalMap是ThreadLocal类的一个静态内部类，它实现了键值对的设置和获取（对比Map对象来理解），每个线程中都有一个独立的ThreadLocalMap副本，它所存储的值，只能被当前线程读取和修改。
+ThreadLocal类通过操作每一个线程特有的ThreadLocalMap副本，从而实现了变量访问在不同线程中的隔离。因为每个线程的变量都是自己特有的，完全不会有并发错误。
+还有一点就是，ThreadLocalMap存储的键值对中的键是this对象指向的ThreadLocal对象，而值就是你所设置的对象了。
