@@ -175,6 +175,12 @@ UnpooledUnsafeDirectByteBuf和UnpooledUnsafeNoCleanerDirectByteBuf，内部使�
     public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
           @Override
           // 回收的入口，暴露出的API调用处
+          public boolean release() {
+              return release0(1);
+          }
+
+          @Override
+          // 回收的入口，暴露出的API调用处
           public boolean release(int decrement) {
               return release0(checkPositive(decrement, "decrement"));
           }
@@ -198,3 +204,174 @@ UnpooledUnsafeDirectByteBuf和UnpooledUnsafeNoCleanerDirectByteBuf，内部使�
           }
     }
 ```
+### 内存管理
+1. 伙伴分配算法 Buddy
+首先给大家介绍一个内存管理算法，可能java程序员很怕内存管理，但这是做软件工程的基础，每天跟内存打交道，不去了解内存管理的知识不利于做高性能应用。  
+伙伴分配算法是一个很常用的内存管理算法，用于减少内存碎片，话不多说先来一个笔者自己实现的算法。
+```java
+/**
+ * @Description: buddy algorithm
+ * @Author: Goober
+ */
+public class Buddy {
+
+    // index from 1 start not 0
+    private final int[] memory;
+
+    private final int[] deepths;
+
+    private final int deepth;
+
+    public Buddy(int powerOfTwo) {
+        this.deepth = powerOfTwo;
+        this.memory = new int[(int) Math.pow(2, powerOfTwo + 1)];
+        this.deepths = new int[(int) Math.pow(2, powerOfTwo + 1)];
+        initMemory();
+    }
+
+    // init each value with each id's deepth
+    private void initMemory() {
+        for (int i = 0; i <= deepth; i++) {
+            int start = (int) Math.pow(2, i);
+            int end = (int) Math.pow(2, i + 1);
+            for (int j = start; j < end; j++) {
+                this.memory[j] = i;
+                this.deepths[j] = i;
+            }
+        }
+    }
+
+    /**
+     * @param d the d = Log2(Total/size) the size is the memory you want allocate
+     */
+    public int allocateNode(int d) throws Exception {
+        int id = findNode(d);
+        if (id < 0) {
+            throw new Exception("error id: " + id);
+        }
+        memory[id] = deepth + 1;// set deepth +1 to make id unusable
+        updateParentsAlloc(id);
+
+        return id;
+    }
+
+    /**
+      * @param id id is the return value of allocateNode
+      */
+    public int freeNode(int id) throws Exception {
+        if (id < 0 || id > ) {
+            throw new Exception("error id: " + id);
+        }
+        memory[id] = deepths[id];
+        updateParentsFree(id);
+
+        return id;
+    }
+
+    private int findNode(int d) {
+        int id = 1; // start index
+        int val = memory[id];
+
+        if (d > deepth) {
+            return -2; // -2 presents error input,d must in range [0,deepth]
+        }
+        if (val > d) {
+            return -1; // -1 presents no enough memory sapce for allocate
+        }
+
+        while ((memory[id] < d || memory[id] > deepths[id]) && memory[id] <= d) {
+            int left = id << 1;
+            int right = left + 1;
+            if (memory[left] < d) {
+                id = left;
+                continue;
+            } else {
+                if (memory[left] == d) {
+                    if (memory[left] > deepths[left]) {
+                        id = left;
+                        continue;
+                    } else {
+                        id = left;
+                        return id;
+                    }
+                }
+            }
+
+            if (memory[right] < d) {
+                id = right;
+                continue;
+            } else {
+                if (memory[right] == d) {
+                    if (memory[right] > deepths[right]) {
+                        id = right;
+                        continue;
+                    } else {
+                        id = right;
+                        return id;
+                    }
+                }
+            }
+        }
+
+        return id;
+    }
+
+
+    private void updateParentsAlloc(final int id) {
+        if (id == 1) {
+            return;
+        }
+
+        int tmp = id;
+        while (tmp > 1) {
+            int parentId = tmp >>> 1;
+            int buddy = tmp ^ 1; // this is the important step, this ^ operation get id's buddy
+
+            int selfValue = memory[tmp];
+            int buddyValue = memory[buddy];
+            int min = selfValue < buddyValue ? selfValue : buddyValue;
+            //set min to parent
+            memory[parentId] = min;
+            tmp = parentId;
+        }
+    }
+
+    private void updateParentsFree(final int id) {
+        if (id == 1) {
+            return;
+        }
+
+        int tmp = id;
+        while (tmp > 1) {
+            int parentId = tmp >>> 1;
+            int buddy = tmp ^ 1;
+
+            int selfValue = memory[tmp];
+            int buddyValue = memory[buddy];
+            // if equal then -1 else set min
+            if (selfValue == buddyValue) {
+                memory[parentId] = selfValue - 1;
+            } else {
+                int min = selfValue < buddyValue ? selfValue : buddyValue;
+                memory[parentId] = min;
+            }
+            tmp = parentId;
+        }
+    }
+
+    public void printAllIdValue() {
+        System.out.println("********************************");
+        for (int i = 0; i <= deepth; i++) {
+            int start = (int) Math.pow(2, i);
+            int end = (int) Math.pow(2, i + 1);
+            StringBuilder s = new StringBuilder();
+            for (int j = start; j < end; j++) {
+                s.append(memory[j] + " ");
+            }
+            System.out.println(s.toString());
+        }
+        System.out.println("********************************");
+    }
+}
+```
+作为工程程序员，手写算法应该是技能必备，语言就像锤子，算法却是我们的设计思想，这是需要不断学习和优化的。不多说，buddy算法本质是池化内存并减少内存碎片，在高并发场景下，极致的内存管理是非常必要的。
