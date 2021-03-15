@@ -1,0 +1,39 @@
+## [Jaeger](https://github.com/jaegertracing/jaeger)
+Uber 开源的分布式链路追踪组件。
+主要是将微服务的每次请求链路收集上报，然后给内部开发人员提供请求链路问题的排查。
+### 架构解析
+#### Agent
+开放udp端口，收集业务程序上报span信息，再通过内部reporter上报给collector。
+上报agent采用的编码格式是thrift。reporter目前版本是grpc，在早期其实用的是thrift，
+rpc用的uber早期开源的tchannel-go，目前已经废弃，考虑到开源，采用了grpc。
+#### Collector
+开发grpc端口，收集agent上报的span数据，然后调用storage进行存储。功能比较单一
+#### Storage
+主要负责span信息的读和写。
+#### Query
+query 基于[cmux](https://github.com/soheilhy/cmux)提供grpc和http查询服务。
+根据traceID 通过storage去查询一整条链路信息。
+
+#### tail-based sampling
+##### 定义
+基于尾部的采样，采样决策是在工作流结束时做出的，以便做出更明智的决策，
+尤其是对于延迟测量，这些延迟只能在完成后才能进行测量。
+例如，基于尾部的采样在评估跟踪的属性后，可能会收集异常数据，例如长等待时间或罕见错误。
+但是，为了在工作流程结束时做出决定，系统必须缓冲一些信息，这可能会增加存储开销。
+基于尾的采样通常用于延迟分析，因为只有在工作流结束之前才能计算端到端延迟。
+通常，基于尾部的采样是自动完成的，采样确定是在收集器或服务中进行的，
+这些收集器或服务根据跟踪数据的隔离，独立部分来决定采样。
+##### 社区贡献
+笔者基于尾部采集的定义再结合阿里云中间件大赛关于尾采集的[赛题](https://tianchi.aliyun.com/competition/entrance/231790/information)
+向Jaeger社区发起了tail-based sampling 特性增强[Issue](https://github.com/jaegertracing/jaeger/issues/425#issuecomment-714199820)
+很可惜，在我向社区反馈了我的修改和方案后，社区维护者一直没有回复。
+所以在本文中，我会继续普及我的设计思路，有更加好的设计思路可以在社区issue下回复我。
+**设计思路**
+jaeger-client-go:
+1. Add functions which handle with span tags with rpc error or other inner error or http status=5xx
+2. Add functions which baggage upstream ip and downstream ip.
+3. Update report span process. When span finished, check tags and baggages, then send to agent
+
+jaeger:
+1. Update agent process. When tags has special value, then push to collector otherwise put into buffer maintained few time(time wheel buffer)
+2. Update collector process. When collector receive special spans, then got downstream ip form them for downstream spans, then loop query until trace end.
