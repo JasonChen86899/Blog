@@ -1,0 +1,67 @@
+## 语言基础
+### 接口
+**Go 语言的接口类型不是任意类型** 或者说任意类型可以分成两种。
+接口也是 Go 语言中的一种类型，它能够出现在变量的定义、函数的入参和返回值中并对它们进行约束，
+不过 Go 语言中有两种略微不同的接口，一种是带有一组方法的接口，另一种是不带任何方法的 interface{}
+
+1. 不包含任何方法的接口 **interface{}**类型 本质为eface类型
+```go
+type eface struct { // 16 bytes
+    _type *_type
+    data  unsafe.Pointer
+}
+type _type struct {
+    size       uintptr
+    ptrdata    uintptr
+    hash       uint32
+    tflag      tflag
+    align      uint8
+    fieldAlign uint8
+    kind       uint8
+    equal      func(unsafe.Pointer, unsafe.Pointer) bool
+    gcdata     *byte
+    str        nameOff
+    ptrToThis  typeOff
+}
+```
+2. 包含方法的接口 本质为iface类型
+```go
+type iface struct { // 16 bytes
+    tab  *itab
+    data unsafe.Pointer
+}
+type itab struct { // 32 bytes
+    inter *interfacetype
+    _type *_type
+    hash  uint32
+    _     [4]byte
+    fun   [1]uintptr
+}
+```
+
+#### 类型转换
+1. 接口a->具体类型ab：a.(ab)
+2. 具体类型ab->接口a：a = b
+
+ >a可以是非空接口或者空接口
+
+3. 空接口和非空接口也可以按上述进行转换
+
+**所以可以理解 空接口 所有类型都可以转为它 包括非空接口，但是说不是所有类型都是它
+(两种类型)。**
+
+接口实现类转向接口(非空接口或者空接口)时Golang内部在调用栈和内存堆的一些措施，总结来看，定义方法时尽量采用指针类型，
+结构体类型会额外增加运行栈的开销。
+
+### unsafe.Pointer说明
+之前说了接口类型到具体类型的转换现在
+可以参见源码说明 非常详细 总结如下：
+1. 任意类型的值的指针可以转换成unsafe.Pointer
+2. unsafe.Pointer可以转换成任意类型
+
+1和2 为不同的具体类型提供了转换基础，比如父子转换就可以基于它
+
+3. uintptr可以转换成unsafe.Pointer
+4. unsafe.Pointer可以转成uintptr
+
+3和4需要注意，uintptr转换时不能转存临时变量，具体可见源码注释。

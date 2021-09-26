@@ -1,0 +1,437 @@
+DB 表
+
+App 应用表
+
+字段	字段配置	字段说明
+Id	int(10) unsigned NOT NULL AUTO_INCREMENT	主键
+AppId  	varchar(500) NOT NULL DEFAULT 'default'	AppID
+Name	varchar(500) NOT NULL DEFAULT 'default'	应用名
+OrgId	varchar(32) NOT NULL DEFAULT 'default'	部门Id
+OrgName	varchar(64) NOT NULL DEFAULT 'default'	部门名字
+OwnerName	varchar(500) NOT NULL DEFAULT 'default'	ownerName
+OwnerEmail	varchar(500) NOT NULL DEFAULT 'default'	ownerEmail
+IsDeleted	bit(1) NOT NULL DEFAULT b'0'	1: deleted, 0: normal
+DataChange_CreatedBy	varchar(32) NOT NULL DEFAULT 'default'	创建人邮箱前缀
+DataChange_CreatedTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP	创建时间
+DataChange_LastModifiedBy	varchar(32) DEFAULT ''	最后修改人邮箱前缀
+DataChange_LastTime	timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+
+
+
+
+索引
+
+PRIMARY	Id
+INDEX	AppId(191)
+INDEX	DataChange_LastTime
+INDEX	Name(191)
+
+
+
+
+AppNamespace 应用namespace定义表
+
+字段	字段配置	字段说明
+Id	int(10) unsigned NOT NULL AUTO_INCREMENT	自增主键
+Name	varchar(32) NOT NULL DEFAULT ''	namespace名字，注意，需要全局唯一
+AppId	varchar(64) NOT NULL DEFAULT ''	app id
+Format	varchar(32) NOT NULL DEFAULT 'properties'	namespace的format类型
+IsPublic	bit(1) NOT NULL DEFAULT b'0'	namespace是否为公共
+Comment	varchar(64) NOT NULL DEFAULT ''	注释
+IsDeleted	bit(1) NOT NULL DEFAULT b'0'	1: deleted, 0: normal
+DataChange_CreatedBy	varchar(32) NOT NULL DEFAULT ''	创建人邮箱前缀
+DataChange_CreatedTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP	创建时间
+DataChange_LastModifiedBy	varchar(32) DEFAULT ''	最后修改人邮箱前缀
+DataChange_LastTime	timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+
+
+
+
+索引
+
+PRIMARY	Id
+INDEX	AppId
+INDEX	Name, AppId
+INDEX	DataChange_LastTime
+
+Audit 日志审计表
+
+字段	字段配置	字段说明
+Id	int(10) unsigned NOT NULL AUTO_INCREMENT	主键
+EntityName	varchar(50) NOT NULL DEFAULT 'default'	表名
+EntityId	int(10) unsigned DEFAULT NULL	记录ID
+OpName	varchar(50) NOT NULL DEFAULT 'default'	操作类型
+Comment	varchar(500) DEFAULT NULL	备注
+IsDeleted	bit(1) NOT NULL DEFAULT b'0'	1: deleted, 0: normal
+DataChange_CreatedBy	varchar(32) NOT NULL DEFAULT 'default'	创建人邮箱前缀
+DataChange_CreatedTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP	创建时间
+DataChange_LastModifiedBy	varchar(32) DEFAULT ''	最后修改人邮箱前缀
+DataChange_LastTime	timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+
+
+
+
+索引
+
+PRIMARY	Id
+INDEX	DataChange_LastTime
+
+Cluster 集群表
+
+字段	字段配置	字段说明
+Id	int(10) unsigned NOT NULL AUTO_INCREMENT	自增主键
+Name	varchar(32) NOT NULL DEFAULT ''	集群名字
+AppId	varchar(64) NOT NULL DEFAULT ''	App id
+ParentClusterId	int(10) unsigned NOT NULL DEFAULT '0'	父cluster
+IsDeleted	bit(1) NOT NULL DEFAULT b'0'	1: deleted, 0: normal
+DataChange_CreatedBy	varchar(32) NOT NULL DEFAULT ''	创建人邮箱前缀
+DataChange_CreatedTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP	创建时间
+DataChange_LastModifiedBy	varchar(32) DEFAULT ''	最后修改人邮箱前缀
+DataChange_LastTime	timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+
+
+
+
+索引
+
+PRIMARY	Id
+INDEX	AppId, Name
+INDEX	ParentClusterId
+INDEX	DataChange_LastTime
+
+Commit 历史表
+
+字段	字段配置	字段说明
+Id	int(10) unsigned NOT NULL AUTO_INCREMENT	主键
+ChangeSets	longtext NOT NULL	修改变更集
+AppId	varchar(500) NOT NULL DEFAULT 'default'	AppID
+ClusterName	varchar(500) NOT NULL DEFAULT 'default'	ClusterName
+NamespaceName	varchar(500) NOT NULL DEFAULT 'default'	namespaceName
+Comment	varchar(500) DEFAULT NULL	备注
+IsDeleted	bit(1) NOT NULL DEFAULT b'0'	1: deleted, 0: normal
+DataChange_CreatedBy	varchar(32) NOT NULL DEFAULT 'default'	创建人邮箱前缀
+DataChange_CreatedTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP	创建时间
+DataChange_LastModifiedBy	varchar(32) DEFAULT ''	最后修改人邮箱前缀
+DataChange_LastTime	timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+
+
+
+
+索引
+
+PRIMARY	Id
+INDEX	DataChange_LastTime
+INDEX	AppId(191)
+INDEX	ClusterName(191)
+INDEX	NamespaceName(191)
+
+GrayReleaseRule 灰度规则表
+
+字段	字段配置	字段说明
+Id	int(11) unsigned NOT NULL AUTO_INCREMENT	主键
+AppId	varchar(64) NOT NULL DEFAULT 'default'	AppID
+ClusterName	varchar(32) NOT NULL DEFAULT 'default'	Cluster Name
+NamespaceName	varchar(32) NOT NULL DEFAULT 'default'	Namespace Name
+BranchName	varchar(32) NOT NULL DEFAULT 'default'	branch name
+Rules	varchar(16000) DEFAULT '[]'	灰度规则
+ReleaseId	int(11) unsigned NOT NULL DEFAULT '0'	灰度对应的release
+BranchStatus	tinyint(2) DEFAULT '1'	灰度分支状态: 0:删除分支,1:正在使用的规则 2：全量发布
+IsDeleted	bit(1) NOT NULL DEFAULT b'0'	1: deleted, 0: normal
+DataChange_CreatedBy	varchar(32) NOT NULL DEFAULT 'default'	创建人邮箱前缀
+DataChange_CreatedTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP	创建时间
+DataChange_LastModifiedBy	varchar(32) DEFAULT ''	最后修改人邮箱前缀
+DataChange_LastTime	timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+
+
+
+
+索引
+
+PRIMARY	Id
+INDEX	DataChange_LastTime
+INDEX	AppId, ClusterName, NamespaceName
+
+Instance 使用配置的应用实例表
+
+字段	字段配置	字段说明
+Id	int(11) unsigned NOT NULL AUTO_INCREMENT	主键
+AppId	varchar(64) NOT NULL DEFAULT 'default'	AppID
+ClusterName	varchar(32) NOT NULL DEFAULT 'default'	Cluster Name
+DataCenter	varchar(64) NOT NULL DEFAULT 'default'	Data Center Name
+Ip	varchar(32) NOT NULL DEFAULT ''	instance ip
+DataChange_CreatedTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP	创建时间
+DataChange_LastTime	timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+
+
+
+
+索引
+
+PRIMARY	Id
+UNIQUE	AppId, ClusterName, Ip, DataCenter
+INDEX	Ip
+INDEX	DataChange_LastTime
+
+InstanceConfig 应用实例的配置信息表
+
+字段	字段配置	字段说明
+Id	int(11) unsigned NOT NULL AUTO_INCREMENT	自增Id
+InstanceId	int(11) unsigned DEFAULT NULL	Instance Id
+ConfigAppId	varchar(64) NOT NULL DEFAULT 'default'	Config App Id
+ConfigClusterName	varchar(32) NOT NULL DEFAULT 'default'	Config Cluster Name
+ConfigNamespaceName	varchar(32) NOT NULL DEFAULT 'default'	Config Namespace Name
+ReleaseKey	varchar(64) NOT NULL DEFAULT ''	发布的Key
+ReleaseDeliveryTime	timestamp NULL DEFAULT NULL	配置获取时间
+DataChange_CreatedTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP	创建时间
+DataChange_LastTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+
+
+
+
+索引
+
+PRIMARY	Id
+UNIQUE	InstanceId, ConfigAppId, ConfigNamespaceName
+INDEX	ReleaseKey
+INDEX	DataChange_LastTime
+INDEX	ConfigAppId, ConfigClusterName, ConfigNamespaceName, DataChange_LastTime
+
+Item 配置项目表
+
+字段	字段配置	字段说明
+Id	int(10) unsigned NOT NULL AUTO_INCREMENT	自增Id
+NamespaceId	int(10) unsigned NOT NULL DEFAULT '0'	集群NamespaceId
+Key	varchar(128) NOT NULL DEFAULT 'default'	配置项Key
+Value	longtext NOT NULL	配置项值
+Comment	varchar(1024) DEFAULT ''	注释
+LineNum	int(10) unsigned DEFAULT '0'	行号
+IsDeleted	bit(1) NOT NULL DEFAULT b'0'	1: deleted, 0: normal
+DataChange_CreatedBy	varchar(32) NOT NULL DEFAULT 'default'	创建人邮箱前缀
+DataChange_CreatedTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP	创建时间
+DataChange_LastModifiedBy	varchar(32) DEFAULT ''	最后修改人邮箱前缀
+DataChange_LastTime	timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+
+
+
+
+索引
+
+PRIMARY	Id
+INDEX	NamespaceId
+INDEX	DataChange_LastTime
+
+Namespace 命名空间
+
+字段	字段配置	字段说明
+Id	int(10) unsigned NOT NULL AUTO_INCREMENT	自增主键
+AppId	varchar(500) NOT NULL DEFAULT 'default'	AppID
+ClusterName	varchar(500) NOT NULL DEFAULT 'default'	Cluster Name
+NamespaceName	varchar(500) NOT NULL DEFAULT 'default'	Namespace Name
+IsDeleted	bit(1) NOT NULL DEFAULT b'0'	1: deleted, 0: normal
+DataChange_CreatedBy	varchar(32) NOT NULL DEFAULT 'default'	创建人邮箱前缀
+DataChange_CreatedTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP	创建时间
+DataChange_LastModifiedBy	varchar(32) DEFAULT ''	最后修改人邮箱前缀
+DataChange_LastTime	timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+
+
+
+
+索引
+
+PRIMARY	Id
+INDEX	AppId(191), ClusterName(191), NamespaceName(191)
+INDEX	DataChange_LastTime
+INDEX	NamespaceName(191)
+
+NamespaceLock namespace的编辑锁
+
+字段	字段配置	字段说明
+Id	int(11) unsigned NOT NULL AUTO_INCREMENT	自增id
+NamespaceId	int(10) unsigned NOT NULL DEFAULT '0'	集群NamespaceId
+DataChange_CreatedBy	varchar(32) NOT NULL DEFAULT 'default'	创建人邮箱前缀
+DataChange_CreatedTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP	创建时间
+DataChange_LastModifiedBy	varchar(32) DEFAULT 'default'	最后修改人邮箱前缀
+DataChange_LastTime	timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+IsDeleted	bit(1) DEFAULT b'0'	软删除
+
+
+
+
+索引
+
+PRIMARY	Id
+UNIQUE	NamespaceId
+INDEX	DataChange_LastTime
+
+Release 发布表
+
+字段	字段配置	字段说明
+Id	int(10) unsigned NOT NULL AUTO_INCREMENT	自增主键
+ReleaseKey	varchar(64) NOT NULL	发布的Key
+Name	varchar(64) NOT NULL DEFAULT 'default'	发布名字
+Comment	varchar(256) DEFAULT NULL	发布说明
+AppId	varchar(500) NOT NULL DEFAULT 'default'	AppID
+ClusterName	varchar(500) NOT NULL DEFAULT 'default'	ClusterName
+NamespaceName	varchar(500) NOT NULL DEFAULT 'default'	namespaceName
+Configurations	longtext NOT NULL
+
+发布配置
+
+这里需要特别说明 configurations 其实就是发布的数据的kv键值对序列化后的字符串。
+
+比如'{\"timeout\":\"100\"}'
+
+
+IsAbandoned	bit(1) NOT NULL DEFAULT b'0'	是否废弃
+IsDeleted	bit(1) NOT NULL DEFAULT b'0'	1: deleted, 0: normal
+DataChange_CreatedBy	varchar(32) NOT NULL DEFAULT 'default'	创建人邮箱前缀
+DataChange_CreatedTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP	创建时间
+DataChange_LastModifiedBy	varchar(32) DEFAULT ''	最后修改人邮箱前缀
+DataChange_LastTime	timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+
+
+
+
+索引
+
+PRIMARY	Id
+INDEX	AppId(191), ClusterName(191), NamespaceName(191)
+INDEX	DataChange_LastTime
+INDEX	ReleaseKey
+
+ReleaseHistory 发布历史表
+
+字段	字段配置	字段说明
+Id	int(11) unsigned NOT NULL AUTO_INCREMENT	自增Id
+AppId	varchar(64) NOT NULL DEFAULT 'default'	AppID
+ClusterName	varchar(32) NOT NULL DEFAULT 'default'	ClusterName
+NamespaceName	varchar(32) NOT NULL DEFAULT 'default'	namespaceName
+BranchName	varchar(32) NOT NULL DEFAULT 'default'	发布分支名
+ReleaseId	int(11) unsigned NOT NULL DEFAULT '0'	关联的Release Id
+PreviousReleaseId	int(11) unsigned NOT NULL DEFAULT '0'	前一次发布的ReleaseId
+Operation	tinyint(3) unsigned NOT NULL DEFAULT '0'
+
+发布类型，
+
+0: 普通发布，
+
+1: 回滚，
+
+2: 灰度发布，
+
+3: 灰度规则更新，
+
+4: 灰度合并回主分支发布，
+
+5: 主分支发布灰度自动发布，
+
+6: 主分支回滚灰度自动发布，
+
+7: 放弃灰度
+
+
+OperationContext	longtext NOT NULL	发布上下文信息
+IsDeleted	bit(1) NOT NULL DEFAULT b'0'	1: deleted, 0: normal
+DataChange_CreatedBy	varchar(32) NOT NULL DEFAULT 'default'	创建人邮箱前缀
+DataChange_CreatedTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP	创建时间
+DataChange_LastModifiedBy	varchar(32) DEFAULT ''	最后修改人邮箱前缀
+DataChange_LastTime	timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+
+
+
+
+索引
+
+PRIMARY	Id
+INDEX	AppId, ClusterName, NamespaceName, BranchName
+INDEX	ReleaseId
+INDEX	DataChange_LastTime
+
+ReleaseMessage 发布消息表
+
+字段	字段配置	字段说明
+Id	int(11) unsigned NOT NULL AUTO_INCREMENT	自增主键
+Message	varchar(1024) NOT NULL DEFAULT ''	发布的消息内容
+DataChange_LastTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+
+
+
+
+索引
+
+PRIMARY	Id
+INDEX	DataChange_LastTime
+INDEX	Message(191)
+
+ServerConfig 配置服务自身配置表
+
+字段	字段配置	字段说明
+Id	int(10) unsigned NOT NULL AUTO_INCREMENT	自增Id
+Key	varchar(64) NOT NULL DEFAULT 'default'	配置项Key
+Cluster	varchar(32) NOT NULL DEFAULT 'default'	配置对应的集群，default为不针对特定的集群
+Value	varchar(2048) NOT NULL DEFAULT 'default'	配置项值
+Comment	varchar(1024) DEFAULT ''	注释
+IsDeleted	bit(1) NOT NULL DEFAULT b'0'	1: deleted, 0: normal
+DataChange_CreatedBy	varchar(32) NOT NULL DEFAULT 'default'	创建人邮箱前缀
+DataChange_CreatedTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP	创建时间
+DataChange_LastModifiedBy	varchar(32) DEFAULT ''	最后修改人邮箱前缀
+DataChange_LastTime	timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+
+
+
+
+索引
+
+PRIMARY	Id
+INDEX	Key
+INDEX	DataChange_LastTime
+
+AccessKey 访问密钥表
+
+字段	字段配置	字段说明
+Id	int(10) unsigned NOT NULL AUTO_INCREMENT	自增主键
+AppId	varchar(500) NOT NULL DEFAULT 'default'	AppID
+Secret	varchar(128) NOT NULL DEFAULT ''	Secret
+IsEnabled	bit(1) NOT NULL DEFAULT b'0'	1: enabled, 0: disabled
+IsDeleted	bit(1) NOT NULL DEFAULT b'0'	1: deleted, 0: normal
+DataChange_CreatedBy	varchar(32) NOT NULL DEFAULT 'default'	创建人邮箱前缀
+DataChange_CreatedTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP	创建时间
+DataChange_LastModifiedBy	varchar(32) NOT NULL DEFAULT ''	最后修改人邮箱前缀
+DataChange_LastTime	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP	最后修改时间
+
+
+
+
+索引
+
+PRIMARY	Id
+INDEX	AppId(191)
+INDEX	DataChange_LastTime
+
+Sample Data
+
+表	Insert 字段和字段值
+App	INSERT INTO `App` (`AppId`, `Name`, `OrgId`, `OrgName`, `OwnerName`, `OwnerEmail`)
+VALUES
+('SampleApp', 'Sample App', 'TEST1', '样例部门1', 'apollo', 'apollo@acme.com');
+AppNamespace	INSERT INTO `AppNamespace` (`Name`, `AppId`, `Format`, `IsPublic`, `Comment`)
+VALUES
+('application', 'SampleApp', 'properties', 0, 'default app namespace');
+Cluster	INSERT INTO `Cluster` (`Name`, `AppId`)
+VALUES
+('default', 'SampleApp');
+Namespace	INSERT INTO `Namespace` (`Id`, `AppId`, `ClusterName`, `NamespaceName`)
+VALUES
+(1, 'SampleApp', 'default', 'application');
+Item	INSERT INTO `Item` (`NamespaceId`, `Key`, `Value`, `Comment`, `LineNum`)
+VALUES
+(1, 'timeout', '100', 'sample timeout配置', 1);
+Release	INSERT INTO `Release` (`ReleaseKey`, `Name`, `Comment`, `AppId`, `ClusterName`, `NamespaceName`, `Configurations`)
+VALUES
+('20161009155425-d3a0749c6e20bc15', '20161009155424-release', 'Sample发布', 'SampleApp', 'default', 'application', '{\"timeout\":\"100\"}');
+ReleaseHistory	INSERT INTO `ReleaseHistory` (`AppId`, `ClusterName`, `NamespaceName`, `BranchName`, `ReleaseId`, `PreviousReleaseId`, `Operation`, `OperationContext`, `DataChange_CreatedBy`, `DataChange_LastModifiedBy`)
+VALUES
+('SampleApp', 'default', 'application', 'default', 1, 0, 0, '{}', 'apollo', 'apollo');
+ReleaseMessage	INSERT INTO `ReleaseMessage` (`Message`)
+VALUES
+('SampleApp+default+application');

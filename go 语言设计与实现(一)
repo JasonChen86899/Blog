@@ -1,0 +1,49 @@
+
+## 基本数据结构
+### 切片
+```go
+type SliceHeader struct {
+    Data uintptr // 底层数组指针
+    Len  int // 切片长度
+    Cap  int // 切片容量
+}
+```
+### 字符串
+只读的字节数组
+```go
+type StringHeader struct {
+    Data uintptr // 底层字节数组指针
+    Len  int // 字节长度
+}
+```
+### 哈希表
+```go
+type hmap struct {
+    count     int // 元素数量
+    flags     uint8 // 当前操作标记 防止并发读写
+    B         uint8 // 2^B 表示bmap桶数
+    noverflow uint16 // overflow个数
+    hash0     uint32
+    buckets    unsafe.Pointer // bmap数组
+    oldbuckets unsafe.Pointer // 扩容时 旧桶
+    nevacuate  uintptr
+    extra *mapextra // 额外overflow
+}
+
+type bmap struct {
+    topbits  [8]uint8 // key 高八位值用于快速定位
+    keys     [8]keytype // 编译时生成 key存储空间
+    values   [8]valuetype// 编译时生成 values存储空间
+    pad      uintptr
+    overflow uintptr //编译时生成 存储下一个溢出桶
+}
+```
+拉链法，保存桶数组。哈希在每一个桶bmap中存储键对应哈希的前8位，当对哈希进行操作时，
+这些 tophash 就成为了一级缓存帮助哈希快速遍历桶中元素，每一个桶都只能存储 8 个键值对，
+一旦当前哈希的某个桶超出 8 个，新的键值对就会被存储到哈希的溢出桶中。
+
+如果当前桶已经满了，哈希会调用 newoverflow 函数创建新桶或者使用 hmap 预先在 overflow 中创建好的桶来保存数据，
+如果是新创建桶，不仅会被追加到已有桶的末尾，还会增加哈希表的 noverflow 计数器。
+
+随着键值对数量的增加，溢出桶的数量和哈希的装载因子也会逐渐升高，超过一定范围就会触发扩容，
+扩容会将桶的数量翻倍，元素再分配的过程也是在调用写操作时增量进行的，不会造成性能的瞬时巨大抖动。

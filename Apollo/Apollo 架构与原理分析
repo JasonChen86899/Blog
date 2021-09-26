@@ -1,0 +1,261 @@
+背景
+
+分析 Apollo 底层设计和原理，包括数据模型，通知变更原理，分发新配置原理。新人可以快速入门配置中心，有一定基础的研发人员可以深入了解 Apollo 配置中心的设计与原理。
+
+Apollo 架构解析
+架构与模块
+
+
+
+
+
+
+
+
+
+
+
+
+
+上图是 Apollo 的七个模块，其中四个模块是和功能相关的核心模块，另外三个模块是辅助服务发现的模块：
+
+四个核心模块及其主要功能
+
+1. ConfigService
+
+提供配置获取接口
+提供配置推送接口
+服务于 Apollo 客户端
+
+2. AdminService
+
+提供配置管理接口
+提供配置修改发布接口
+服务于管理界面 Portal
+
+3. Client
+
+为应用获取配置，支持实时更新
+通过 MetaServer 获取 ConfigService 的服务列表
+使用客户端软负载 SLB 方式调用 ConfigService
+
+4. Portal
+
+配置管理界面
+通过 MetaServer 获取 AdminService 的服务列表
+使用客户端软负载 SLB 方式调用 AdminService
+三个辅助服务发现模块
+
+1. Eureka
+
+用于服务发现和注册
+Config/AdminService 注册实例并定期报心跳
+和 ConfigService 住在一起部署
+
+2. MetaServer
+
+Portal 通过域名访问 MetaServer 获取 AdminService 的地址列表
+Client 通过域名访问 MetaServer 获取 ConfigService 的地址列表
+相当于一个 Eureka Proxy
+逻辑角色，和 ConfigService 住在一起部署
+
+3. NginxLB
+
+和域名系统配合，协助 Portal 访问 MetaServer 获取 AdminService 地址列表
+和域名系统配合，协助 Client 访问 MetaServer 获取 ConfigService 地址列表
+和域名系统配合，协助用户访问 Portal 进行配置管理
+
+
+
+
+专业术语与维度
+application
+实际使用配置的应用，比如cmt-admin、coins-api、chatbot-api等，有appId唯一标识
+environment
+环境，对应shopee的test/uat/staging/live
+cluster
+集群，一个应用下不同实例的分组。比如可以按照数据中心分，sg1机房的应用实例分为一个集群，sg2机房的应用实例分为另一个集群
+此概念我们换成了国家地区（region）的概念，一般一个应用下一个region的配置对应一个Cluster
+namespace
+命名空间，一个应用下不同配置的分组。
+
+注：如需进一步了解可以阅读相关资料
+
+Apollo 原理解析
+关键 DB 表关系
+
+DB 详细设计参见此文档
+
+上图是原理中涉及到的关键的表（非关键表未列出），表的字段以及表与表之间的关系：
+
+1.App 表
+
+记录AppId相关信息，每个AppId 全局唯一。AppNameSpace，Cluster 和 Namespace 都有 AppId 字段，都外键关联 App 表的 AppId 字段。NamespaceName 和 AppId 是多对一的关系，ClusterName 和 AppId 是多对一关系，Namespace 和 AppId 是多对一关系。
+
+2.AppNamespace 表
+
+记录 namespace 属性，Format 字段表示 namepace 格式，格式包括：properties，json，xml，yml，yaml，txt；isPubish 字段表示 是否为公共 namespace
+
+3.Cluster 表
+
+记录Cluster属性，ClusterName 正常情况下就是配置的集群名，集群在shopee 指 region。
+
+ParentClusterId 正常情况指为0，如果非0，则表示这是一个灰度分支的Cluster，Name就不是配置的集群名了，而是内部生成的唯一Cluster，parentCluserId值是主版本的Cluster的Id。也就是说实现灰度的原理其实是生成新的ClusterName，这样就会生成新的AppID+ClusterName+Namespace 的三元组，从而和正常分支的发布原理实现兼容。
+
+4.Namespace 表
+
+记录指定的命名空间，根据 AppId，ClusterName 和 NamespaceName 唯一指定 一个 AppId 下的一个 Cluster 的一个 Namespace 空间。在设计中 Namespace 是 App 级别，但是在真正配置时 需要指定Cluster才能配置，如果不指定Cluster默认采用default集群。
+
+5.Item 表
+
+记录具体的kv值，Namespace 字段 外键关联 Namspace 表 Id 字段，表示配置的 item值（KV数据）是隶属于具体的一个 AppId+ClusterName+Namespace 命名空间。换句话说一个Namespace 在不同的 Cluster 下会有不同的 Item 记录值。
+
+6.Release 表
+
+记录具体发布内容，Apollo 发布数据基于namespace维度，字段 AppId+ClusterName+Namespace 唯一指定命名空间，Configurations 字段表示发布的内容，isAbandoned 字段表示是否废弃，进行回滚操作时该字段会被设置为true
+
+7.GrayReleaseRule 表
+
+记录灰度发布内容，Apollo 发布数据基于namespace维度，字段 AppId+ClusterName+Namespace 唯一指定命名空间，Configurations 字段表示发布的内容，isAbandoned 字段表示是否废弃，进行回滚操作时该字段会被设置为true
+
+ Admin 和 Client 流程内部action与原理解析
+Admin 管理端
+
+admin 端操作都是数据库操作，如下表所示
+
+操作方	动作	内部action 与 原理
+Admin
+
+创建私有 namspace_xx
+
+	新增 AppNameSpace 表一行记录
+Admin	在此 namspace_xx 下创建KV键值对 item_xx 并提交 commit_xx	新增 Item 表一行KV记录，新增 commit 表一行记录（一个事务内）
+Admin	发布此 namspace_xx 刚刚的新增 release_xx	新增 Release 表一行记录，新增 ReleaseMessage 表一行记录，新增 ReleaseHistory 表一行记录（一个事务内）
+Admin	在此 namspace_xx 下创建灰度配置 gray_xx	新增 GrayReleaseRule 表一行记录
+Admin	发布此 namspace_xx 下刚刚创建的灰度配置gray_xx	新增 Release 表一行记录，跟新 GrayReleaseRule 表 ReleaseId字段，新增 ReleaseMessage 表一行记录，新增 ReleaseHistory 表一行记录（一个事务内）
+用户向接口详解
+动作	涉及的表	具体表操作	相关SQL
+获取发布变更通知
+
+ReleaseMessage 表
+
+InstanceConfig 表
+
+Instance 表
+
+
+异步 查询 最新的 releaseMessage  设置到缓存
+
+message 数据格式 appId+clusterName+namespace
+
+更新 InstanceConfig 表，如果是新 Client客户端 会新增 Instance 表一行记录
+
+
+While 循环执行查询500最新message方法，直到没有数据
+
+SQL：
+
+select * from ReleaseMessage where id>maxIdScanned offset 0 limit 500
+select * from ReleaseMessage where id>maxIdScanned offset 500 limit 500
+......
+
+
+
+
+
+获取新发布内容
+
+GrayReleaseRule 表
+
+Release 表
+
+
+查询 灰度表是否存在相关数据灰度数据
+查询 release 表
+
+      a)如果存在灰度 releaseId，获取根据 releaseId 获取 ActiveRelease
+
+      b)如果不存在灰度，则获取 LastActiveRelease
+
+
+灰度获取
+
+从 ReleaseMessage 表获取对应命名空间的 releaseId，再根据 releaseId 查询Release 表获取数据
+
+SQL：
+
+select releaseId from GrayReleaseRule where AppId=c_appId and ClusterName=c_clusterName and NameSpaceName=c_namespace
+select * from Release where releaseId=releaseId
+获取最新发布
+
+从 Release 表获取相关命名空间的Id值最大的一条数据，也就是该命名空间的最新的release数据
+
+SQL：
+
+select * from Release where AppId=c_appId and ClusterName=c_clusterName and NameSpaceName=c_namespace and isAbandoned=False OrderBy Id Desc Limit 1
+
+
+
+
+如上表，用户向的操作包含两个操作，接下来详细讲解两个动作的内部原理。在介绍原理之间，要先特别说明下 Apollo 内部的 Listener 同步机制
+
+Listener 同步机制
+
+如上图所示，当有新 Release 发布，ReleaseMessage 会同时新增一条，这是时候 ReleaseMessageScanner 会定时扫描初message，然后将 message 信息同步通知给注册的 Listeners，Listeners 有6个。
+
+1.ReleaseMessageWithCache
+
+负责缓存 ReleaseMessage，当收到 ReleaseMessage 时，其会以merge的方式更新message缓存
+
+2.GrayReleaseRulesHolder
+
+负责缓存灰度发布的release缓存，当收到 ReleaseMessage 时，先查询灰度表得到grayReleaseRule，再以merge的方式更新grayReleaseRule缓存
+
+3.ConfigServerWithCache
+
+负责缓存 Release 数据，当收到 ReleaseMessage 时，会将 map 缓存中对应 key=appId+clusterName+namespace 的 value值也就是 Release 数据失效，当客户端下次重新请求时，重新加载新 Release 数据
+
+获取发布变更通知
+
+根据前面所示的同步机制，config server 会更新 releaseMessage 缓存，用户向请求会获取缓存。
+
+数据结构
+
+ReleaseMessage 表字段和对应的字段值内容如下：
+
+id	message
+自增id，在逻辑代码中表示 config server 中的 notificationId	appId+clusterName+namespace
+
+ReleaseMessage 缓存Cache 结构如下：
+
+key	value
+appId+clusterName+namespace	ReleaseMessage
+详细流程
+
+
+如上图，client 端长轮训请求自身关心的namespace数据，config server 异步处理请求客户端请求，从 releaseMessage 缓存cache 中获取namespace的发布变更消息ReleaseMessage，然后返回客户端。
+
+获取新发布内容
+
+client 端在接受到变更消息后，主动请求获取对应namespace的最新 release 数据。config server 根据 appId+clusterName+namespace 作为缓存 Key 到缓存中查询，如果缓存中没有就会直接到DB中查询
+
+Release 缓存结构如下：
+
+key	value
+appId+clusterName+namespace	Release 对象
+
+这里除了获取最新数据之外还会额外获取灰度数据，公共namespace数据。也就是说获取最新的Release只是其中的一步操作，也就是获取私有和关联namespace。
+
+灰度查询：
+
+GrayReleaseRule 缓存结构如下：
+
+key	value
+appId+clusterName+namespace	GrayReleaseRule 对象
+
+
+公共namespace 查询
+
+公共和私有与关联的区别只有一个，就是AppNameSpace表的映射关系，公共Namespace的appID不是客户端传的appID。查询时同上述的 Release 查询，唯一不同的是用来查询的 appID是公共namespace所属于的appID。
+
+详细流程如下图
